@@ -1,0 +1,344 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel File Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1e1e1e, #2c3e50);
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        h2 {
+            text-align: center;
+            font-size: 32px;
+            color: #00d4ff;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+            margin-bottom: 30px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        label {
+            font-size: 18px;
+            color: #ecf0f1;
+            margin-right: 10px;
+            align-self: center;
+        }
+
+        select, button {
+            padding: 10px 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            background: #34495e;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        select:hover, button:hover {
+            background: #00d4ff;
+            color: #1e1e1e;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.7);
+        }
+
+        select:disabled {
+            background: #2c3e50;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        #fileList {
+            margin: 20px auto;
+            max-width: 800px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(52, 73, 94, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .file-item button {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            padding: 8px 15px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .file-item button:hover {
+            background: linear-gradient(135deg, #00d4ff, #3498db);
+        }
+
+        .file-item select {
+            background: #2c3e50;
+            padding: 8px;
+        }
+
+        .file-item select:hover {
+            background: #00d4ff;
+        }
+
+        .table-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th {
+            background: linear-gradient(90deg, #00d4ff, #3498db);
+            color: #1e1e1e;
+            padding: 12px 16px;
+            font-weight: 600;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            border-bottom: 2px solid #2980b9;
+        }
+
+        td {
+            padding: 12px 16px;
+            text-align: center;
+            color: #ecf0f1;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(0, 212, 255, 0.15);
+            transition: background 0.3s ease;
+        }
+
+        @media (max-width: 600px) {
+            .controls, #fileList {
+                flex-direction: column;
+                align-items: center;
+            }
+            select, button {
+                width: 100%;
+                max-width: 300px;
+            }
+            .file-item {
+                flex-direction: column;
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <h2>Excel File Viewer</h2>
+
+    <div class="controls">
+        <label for="yearSelect">Select Year:</label>
+        <select id="yearSelect" onchange="fetchSemesters()">
+            <option value="">-- Select Year --</option>
+        </select>
+
+        <label for="semesterSelect">Select Semester:</label>
+        <select id="semesterSelect" onchange="fetchFiles()" disabled>
+            <option value="">-- Select Semester --</option>
+        </select>
+    </div>
+
+    <div id="fileList"></div>
+    <div class="table-container">
+        <table id="excelTable"></table>
+    </div>
+
+    <script>
+        let currentWorkbook = null;
+
+        async function fetchYears() {
+            const response = await fetch('http://localhost:3000/years');
+            const years = await response.json();
+            const yearSelect = document.getElementById('yearSelect');
+
+            years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            });
+        }
+
+        async function fetchSemesters() {
+            const year = document.getElementById('yearSelect').value;
+            const semesterSelect = document.getElementById('semesterSelect');
+            semesterSelect.innerHTML = '<option value="">-- Select Semester --</option>';
+            semesterSelect.disabled = true;
+            document.getElementById('fileList').innerHTML = '';
+            document.getElementById('excelTable').innerHTML = '';
+
+            if (!year) return;
+
+            const response = await fetch(`http://localhost:3000/semesters/${year}`);
+            const semesters = await response.json();
+
+            semesters.forEach(semester => {
+                const option = document.createElement('option');
+                option.value = semester;
+                option.textContent = semester;
+                semesterSelect.appendChild(option);
+            });
+
+            semesterSelect.disabled = false;
+        }
+
+        async function fetchFiles() {
+            const year = document.getElementById('yearSelect').value;
+            const semester = document.getElementById('semesterSelect').value;
+            const fileListDiv = document.getElementById('fileList');
+            fileListDiv.innerHTML = '';
+            document.getElementById('excelTable').innerHTML = '';
+
+            if (!year || !semester) return;
+
+            const response = await fetch(`http://localhost:3000/files/${year}/${semester}`);
+            const files = await response.json();
+
+            if (files.length === 0) {
+                fileListDiv.innerHTML = '<p style="text-align: center; color: #ecf0f1;">No files found.</p>';
+                return;
+            }
+
+            files.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+
+                const btn = document.createElement('button');
+                btn.textContent = file.split('/').pop();
+                btn.onclick = () => loadExcel(file);
+
+                const sheetSelect = document.createElement('select');
+                sheetSelect.disabled = true;
+
+                fileItem.appendChild(btn);
+                fileItem.appendChild(sheetSelect);
+                fileListDiv.appendChild(fileItem);
+            });
+        }
+
+        async function loadExcel(fileUrl) {
+            const response = await fetch(`http://localhost:3000/${fileUrl}`);
+            const data = await response.arrayBuffer();
+            currentWorkbook = XLSX.read(data, { type: 'array' });
+
+            const fileItems = document.querySelectorAll('.file-item');
+            fileItems.forEach(item => {
+                const btn = item.querySelector('button');
+                const sheetSelect = item.querySelector('select');
+                if (btn.textContent === fileUrl.split('/').pop()) {
+                    sheetSelect.innerHTML = '<option value="">-- Select Sheet --</option>';
+                    currentWorkbook.SheetNames.forEach(sheetName => {
+                        const option = document.createElement('option');
+                        option.value = sheetName;
+                        option.textContent = sheetName;
+                        sheetSelect.appendChild(option);
+                    });
+                    sheetSelect.disabled = false;
+                    sheetSelect.onchange = () => displaySheet(sheetSelect.value);
+                    // Auto-load the first sheet
+                    if (currentWorkbook.SheetNames.length > 0) {
+                        sheetSelect.value = currentWorkbook.SheetNames[0];
+                        displaySheet(currentWorkbook.SheetNames[0]);
+                    }
+                } else {
+                    sheetSelect.innerHTML = '<option value="">-- Select Sheet --</option>';
+                    sheetSelect.disabled = true;
+                }
+            });
+        }
+
+        function displaySheet(sheetName) {
+            if (!currentWorkbook || !sheetName) return;
+
+            const sheet = currentWorkbook.Sheets[sheetName];
+            const table = document.getElementById('excelTable');
+            table.innerHTML = '';
+
+            const range = XLSX.utils.decode_range(sheet['!ref']);
+            let maxRow = range.s.r;
+            let maxCol = range.s.c;
+
+            // Find actual data boundaries
+            for (let R in sheet) {
+                if (R[0] === '!') continue;
+                const cell = XLSX.utils.decode_cell(R);
+                if (sheet[R].v !== undefined && sheet[R].v !== '') {
+                    maxRow = Math.max(maxRow, cell.r);
+                    maxCol = Math.max(maxCol, cell.c);
+                }
+            }
+
+            // Render table with only data-filled cells
+            for (let row = range.s.r; row <= maxRow; row++) {
+                const tr = document.createElement('tr');
+                let hasData = false;
+
+                for (let col = range.s.c; col <= maxCol; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                    const cell = sheet[cellAddress];
+                    const td = document.createElement(row === range.s.r ? 'th' : 'td');
+
+                    if (cell && cell.v !== undefined && cell.v !== '') {
+                        td.textContent = cell.w || cell.v;
+                        hasData = true;
+                    } else {
+                        td.textContent = '';
+                    }
+                    tr.appendChild(td);
+                }
+
+                if (hasData) {
+                    table.appendChild(tr);
+                }
+            }
+        }
+
+        fetchYears();
+    </script>
+</body>
+</html>

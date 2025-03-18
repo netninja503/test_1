@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Recommender</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .dark-mode {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        .light-mode {
+            background-color: #f7fafc;
+            color: #2d3748;
+        }
+        .card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        .btn {
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 1s ease-in-out;
+        }
+        a {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+        a:hover {
+            color: #2563eb;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #e5e7eb;
+            height: 1rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #10b981;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="light-mode min-h-screen flex flex-col">
+    <!-- Header with Dark/Light Toggle -->
+    <header class="flex justify-between items-center p-4 bg-gray-800 text-white dark:bg-gray-900">
+        <h1 class="text-2xl font-bold">Course Recommender</h1>
+        <button id="theme-toggle" class="p-2 rounded-full bg-gray-600 hover:bg-gray-700">
+            <i class="fas fa-moon"></i>
+        </button>
+    </header>
+
+    <!-- Landing Page Section -->
+    <section class="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fadeIn">
+        <h2 class="text-4xl font-extrabold mb-4">Unlock Your Learning Potential</h2>
+        <p class="text-lg mb-6">Select a topic to see courses for all skill levels!</p>
+        <button id="start-btn" class="btn bg-blue-600 text-white py-2 px-6 rounded-lg shadow-lg">Get Started</button>
+    </section>
+
+    <!-- Selection Section (Hidden Initially) -->
+    <section id="selection-section" class="hidden p-8 w-full max-w-4xl mx-auto animate-fadeIn">
+        <h2 class="text-3xl font-bold mb-6 text-center">Choose Your Topic</h2>
+        <div class="grid grid-cols-1 gap-6">
+            <!-- Course Topic -->
+            <div>
+                <label class="block text-lg font-semibold mb-2">Topic</label>
+                <select id="course-topic" class="w-full p-2 rounded-lg border dark:bg-gray-700 dark:text-white">
+                    <option value="web-dev">Web Development</option>
+                    <option value="data-science">Data Science</option>
+                    <option value="ai">Artificial Intelligence</option>
+                </select>
+            </div>
+        </div>
+        <button id="submit-btn" class="btn mt-6 w-full bg-green-600 text-white py-2 rounded-lg shadow-lg">Show Recommendations</button>
+    </section>
+
+    <!-- Recommendations Section (Hidden Initially) -->
+    <section id="recommendations" class="hidden p-8 w-full max-w-6xl mx-auto animate-fadeIn">
+        <h2 class="text-3xl font-bold mb-6 text-center">Your Recommendations</h2>
+        <div id="course-list" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+    </section>
+
+    <!-- Login/Signup Modal (Hidden Initially) -->
+    <div id="auth-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center animate-fadeIn">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-2xl font-bold mb-4">Login / Signup</h3>
+            <button class="w-full mb-2 p-2 bg-blue-600 text-white rounded-lg flex items-center justify-center">
+                <i class="fab fa-google mr-2"></i> Continue with Google
+            </button>
+            <button class="w-full mb-2 p-2 bg-gray-800 text-white rounded-lg flex items-center justify-center">
+                <i class="fab fa-github mr-2"></i> Continue with GitHub
+            </button>
+            <button id="close-modal" class="w-full p-2 bg-red-600 text-white rounded-lg">Close</button>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        const courses = {
+            "beginner": {
+                "web-dev": {
+                    title: "Introduction to Web Development",
+                    desc: "Learn the fundamentals of building websites with HTML, CSS, and JavaScript.",
+                    topics: ["HTML Structure", "CSS Styling", "JavaScript Basics"],
+                    projects: ["Personal Portfolio", "Simple Calculator"],
+                    resources: [
+                        { name: "FreeCodeCamp", url: "https://www.freecodecamp.org" },
+                        { name: "W3Schools", url: "https://www.w3schools.com" }
+                    ],
+                    youtube: { name: "Web Dev Basics by Traversy Media", url: "https://www.youtube.com/watch?v=UB1O30fR-EE" },
+                    website: { name: "FreeCodeCamp Official", url: "https://www.freecodecamp.org" }
+                },
+                "data-science": {
+                    title: "Data Science 101",
+                    desc: "A beginner's guide to data analysis and visualization.",
+                    topics: ["Data Cleaning", "Basic Statistics", "Visualization with Matplotlib"],
+                    projects: ["Sales Data Analysis", "Weather Visualization"],
+                    resources: [
+                        { name: "Kaggle", url: "https://www.kaggle.com" },
+                        { name: "Coursera", url: "https://www.coursera.org" }
+                    ],
+                    youtube: { name: "Data Science Crash Course", url: "https://www.youtube.com/watch?v=r-uOLxNrNk8" },
+                    website: { name: "Kaggle Official", url: "https://www.kaggle.com" }
+                },
+                "ai": {
+                    title: "AI for Beginners",
+                    desc: "Explore the basics of Artificial Intelligence and Machine Learning.",
+                    topics: ["AI Concepts", "Supervised Learning", "Intro to Neural Networks"],
+                    projects: ["Simple Chatbot", "Image Classifier"],
+                    resources: [
+                        { name: "edX", url: "https://www.edx.org" },
+                        { name: "Udemy", url: "https://www.udemy.com" }
+                    ],
+                    youtube: { name: "AI Explained by CodeWithChris", url: "https://www.youtube.com/watch?v=ad79nYk2keg" },
+                    website: { name: "edX Official", url: "https://www.edx.org" }
+                }
+            },
+            "intermediate": {
+                "web-dev": {
+                    title: "React Mastery",
+                    desc: "Build dynamic and interactive UIs with React.js.",
+                    topics: ["React Components", "State Management", "API Integration"],
+                    projects: ["To-Do App", "Weather Dashboard"],
+                    resources: [
+                        { name: "React Docs", url: "https://reactjs.org" },
+                        { name: "Scrimba", url: "https://scrimba.com" }
+                    ],
+                    youtube: { name: "React Tutorial by Net Ninja", url: "https://www.youtube.com/watch?v=j942wKiXFu8" },
+                    website: { name: "React Official", url: "https://reactjs.org" }
+                },
+                "data-science": {
+                    title: "Intermediate Data Science",
+                    desc: "Master data manipulation and visualization with Python.",
+                    topics: ["Pandas", "NumPy", "Seaborn Visualization"],
+                    projects: ["Stock Price Analysis", "Customer Segmentation"],
+                    resources: [
+                        { name: "DataCamp", url: "https://www.datacamp.com" },
+                        { name: "Udacity", url: "https://www.udacity.com" }
+                    ],
+                    youtube: { name: "Pandas Tutorial by Corey Schafer", url: "https://www.youtube.com/watch?v=ZyhVh-qRZPA" },
+                    website: { name: "DataCamp Official", url: "https://www.datacamp.com" }
+                },
+                "ai": {
+                    title: "AI with Python",
+                    desc: "Intermediate AI techniques using Python libraries.",
+                    topics: ["Unsupervised Learning", "TensorFlow Basics", "Model Evaluation"],
+                    projects: ["Recommendation System", "Voice Recognition"],
+                    resources: [
+                        { name: "Fast.ai", url: "https://www.fast.ai" },
+                        { name: "Coursera", url: "https://www.coursera.org" }
+                    ],
+                    youtube: { name: "TensorFlow Basics by FreeCodeCamp", url: "https://www.youtube.com/watch?v=tPYj3fFJGjk" },
+                    website: { name: "Fast.ai Official", url: "https://www.fast.ai" }
+                }
+            },
+            "advanced": {
+                "web-dev": {
+                    title: "Advanced Backend Development",
+                    desc: "Master server-side development with Node.js and APIs.",
+                    topics: ["RESTful APIs", "Database Integration", "Authentication"],
+                    projects: ["E-commerce API", "Real-time Chat App"],
+                    resources: [
+                        { name: "MDN Web Docs", url: "https://developer.mozilla.org" },
+                        { name: "Pluralsight", url: "https://www.pluralsight.com" }
+                    ],
+                    youtube: { name: "Node.js Tutorial by Traversy Media", url: "https://www.youtube.com/watch?v=fBNz5xF-Kx4" },
+                    website: { name: "Node.js Official", url: "https://nodejs.org" }
+                },
+                "data-science": {
+                    title: "Advanced Machine Learning",
+                    desc: "Deep dive into machine learning with advanced techniques.",
+                    topics: ["Deep Learning", "Reinforcement Learning", "Model Deployment"],
+                    projects: ["Image Recognition Model", "Stock Prediction"],
+                    resources: [
+                        { name: "TensorFlow", url: "https://www.tensorflow.org" },
+                        { name: "PyTorch", url: "https://pytorch.org" }
+                    ],
+                    youtube: { name: "Deep Learning by 3Blue1Brown", url: "https://www.youtube.com/watch?v=aircAruvnKk" },
+                    website: { name: "TensorFlow Official", url: "https://www.tensorflow.org" }
+                },
+                "ai": {
+                    title: "AI Research Frontiers",
+                    desc: "Explore cutting-edge AI research and applications.",
+                    topics: ["Generative AI", "Natural Language Processing", "Ethics in AI"],
+                    projects: ["Text Generator", "Sentiment Analysis"],
+                    resources: [
+                        { name: "ArXiv", url: "https://arxiv.org" },
+                        { name: "DeepLearning.ai", url: "https://www.deeplearning.ai" }
+                    ],
+                    youtube: { name: "AI Research by Lex Fridman", url: "https://www.youtube.com/watch?v=0Twif3RPSks" },
+                    website: { name: "DeepLearning.ai Official", url: "https://www.deeplearning.ai" }
+                }
+            }
+        };
+
+        // Theme Toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            document.body.classList.toggle('light-mode');
+            themeToggle.innerHTML = document.body.classList.contains('dark-mode') ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+        });
+
+        // Start Button
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.querySelector('section').classList.add('hidden');
+            document.getElementById('selection-section').classList.remove('hidden');
+        });
+
+        // Submit Button - Show All Levels for Selected Topic
+        document.getElementById('submit-btn').addEventListener('click', () => {
+            const topic = document.getElementById('course-topic').value;
+            const skillLevels = ['beginner', 'intermediate', 'advanced'];
+            const courseList = document.getElementById('course-list');
+            courseList.innerHTML = '';
+
+            skillLevels.forEach(skill => {
+                const course = courses[skill][topic];
+                const courseKey = `${skill}-${topic}`;
+                let progress = localStorage.getItem(courseKey) || 0;
+
+                courseList.innerHTML += `
+                    <div class="card bg-white dark:bg-gray-700 p-6 rounded-lg shadow-lg">
+                        <h3 class="text-xl font-bold mb-2">${course.title} (${skill.charAt(0).toUpperCase() + skill.slice(1)})</h3>
+                        <p class="mb-4">${course.desc}</p>
+                        <h4 class="font-semibold">Topics Covered:</h4>
+                        <ul class="list-disc list-inside mb-4">
+                            ${course.topics.map(topic => `<li>${topic}</li>`).join('')}
+                        </ul>
+                        <h4 class="font-semibold">Projects:</h4>
+                        <ul class="list-disc list-inside mb-4">
+                            ${course.projects.map(project => `<li>${project}</li>`).join('')}
+                        </ul>
+                        <h4 class="font-semibold">Resources:</h4>
+                        <ul class="list-disc list-inside mb-4">
+                            ${course.resources.map(res => `<li><a href="${res.url}" target="_blank">${res.name}</a></li>`).join('')}
+                        </ul>
+                        <h4 class="font-semibold">YouTube Tutorial:</h4>
+                        <p class="mb-4"><a href="${course.youtube.url}" target="_blank">${course.youtube.name}</a></p>
+                        <h4 class="font-semibold">Official Website:</h4>
+                        <p class="mb-4"><a href="${course.website.url}" target="_blank">${course.website.name}</a></p>
+                        <h4 class="font-semibold">Your Progress:</h4>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill-${courseKey}" style="width: ${progress}%"></div>
+                        </div>
+                        <input type="range" min="0" max="100" value="${progress}" class="w-full mt-2" id="progress-slider-${courseKey}">
+                        <p class="text-sm text-gray-600 dark:text-gray-300" id="progress-text-${courseKey}">${progress}% Complete</p>
+                    </div>
+                `;
+            });
+
+            // Add event listeners for progress sliders
+            skillLevels.forEach(skill => {
+                const courseKey = `${skill}-${topic}`;
+                const slider = document.getElementById(`progress-slider-${courseKey}`);
+                slider.addEventListener('input', (e) => {
+                    const newProgress = e.target.value;
+                    localStorage.setItem(courseKey, newProgress);
+                    document.getElementById(`progress-fill-${courseKey}`).style.width = `${newProgress}%`;
+                    document.getElementById(`progress-text-${courseKey}`).textContent = `${newProgress}% Complete`;
+                });
+            });
+
+            document.getElementById('selection-section').classList.add('hidden');
+            document.getElementById('recommendations').classList.remove('hidden');
+        });
+
+        // Auth Modal
+        document.getElementById('start-btn').addEventListener('dblclick', () => {
+            document.getElementById('auth-modal').classList.remove('hidden');
+        });
+        document.getElementById('close-modal').addEventListener('click', () => {
+            document.getElementById('auth-modal').classList.add('hidden');
+        });
+    </script>
+</body>
+</html>

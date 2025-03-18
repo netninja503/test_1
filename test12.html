@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Principal's Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(135deg, #2E2E2E, #1A1A1A);
+            color: #fff;
+            overflow-x: hidden;
+        }
+    
+        .dashboard {
+            width: 90%;
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
+            animation: fadeIn 1s ease-out;
+            position: relative;
+        }
+    
+        h1 {
+            font-size: 34px;
+            font-weight: 700;
+            color: #FFD700;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+    
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+            justify-content: center;
+            align-items: center;
+        }
+    
+        select, button, input[type="file"] {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+    
+        select:hover, button:hover, input[type="file"]:hover {
+            border-color: #FFA500;
+            box-shadow: 0 0 15px rgba(255, 165, 0, 0.3);
+        }
+    
+        button {
+            cursor: pointer;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #1A1A1A;
+            font-weight: 700;
+        }
+    
+        .table-container {
+            max-height: 70vh;
+            overflow: auto;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            position: relative;
+        }
+    
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 15px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+    
+        th {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #1A1A1A;
+            padding: 12px 16px;
+            font-weight: 700;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            border-bottom: 2px solid #FFA500;
+        }
+    
+        td {
+            padding: 12px 16px;
+            text-align: center;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+        }
+    
+        tr:last-child td {
+            border-bottom: none;
+        }
+    
+        tr:hover td {
+            background: rgba(255, 215, 0, 0.15);
+            transition: background 0.3s ease;
+        }
+    
+        .highlight-column {
+            background: rgba(255, 165, 0, 0.3) !important;
+        }
+    
+        .low-marks {
+            background: rgba(255, 0, 0, 0.5) !important;
+            color: #fff;
+            font-weight: bold;
+        }
+    
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <h1>Principal's Dashboard</h1>
+        <div class="controls">
+            <select id="yearSelector">
+                <option value="">Select Year</option>
+                <option value="2023">2023</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+            </select>
+            <select id="semesterSelector">
+                <option value="">Select Semester</option>
+                <option value="1">Semester 1</option>
+                <option value="2">Semester 2</option>
+                <option value="3">Semester 3</option>
+                <option value="4">Semester 4</option>
+                <option value="5">Semester 5</option>
+                <option value="6">Semester 6</option>
+            </select>
+            <input type="file" id="fileInput" accept=".xlsx, .xls" />
+            <select id="fileSelector">
+                <option value="">Select Uploaded File</option>
+            </select>
+            <select id="sheetSelector" style="display: none;">
+                <option value="">Select Sheet</option>
+            </select>
+            <button id="fullscreenBtn">Full Screen</button>
+            <button id="downloadBtn" style="display: none;">Download PDF</button>
+        </div>
+        <div class="table-container" id="tableContainer"></div>
+    </div>
+
+    <script>
+        let workbook = null;
+
+        // Password protection
+        const correctPassword = "principal123";
+        let password = prompt("Enter password to access the dashboard:");
+        if (password !== correctPassword) {
+            alert("Access denied!");
+            document.body.innerHTML = "<h1>Access Denied</h1>";
+            throw new Error("Unauthorized");
+        }
+
+        // File upload handler
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const year = document.getElementById('yearSelector').value || 'Unknown';
+            const semester = document.getElementById('semesterSelector').value || 'Unknown';
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('year', year);
+            formData.append('semester', semester);
+
+            const response = await fetch('http://localhost:3000/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.error) {
+                alert('Upload failed: ' + result.error);
+                return;
+            }
+
+            // Refresh file list and auto-select the uploaded file
+            loadStoredFiles(year, semester);
+            const fileSelector = document.getElementById('fileSelector');
+            fileSelector.value = result.filename;
+            fileSelector.dispatchEvent(new Event('change'));
+        });
+
+        // Load stored files with filtering
+        async function loadStoredFiles(year = '', semester = '') {
+            const fileSelector = document.getElementById('fileSelector');
+            const response = await fetch(`http://localhost:3000/files?year=${year}&semester=${semester}`);
+            const storedFiles = await response.json();
+            
+            fileSelector.innerHTML = '<option value="">Select Uploaded File</option>';
+            storedFiles.forEach(file => {
+                const option = document.createElement('option');
+                option.value = file.name;
+                option.textContent = `${file.name} - Semester ${file.semester} - ${file.year}`;
+                fileSelector.appendChild(option);
+            });
+
+            if (storedFiles.length > 0) {
+                document.getElementById('sheetSelector').style.display = 'block';
+                document.getElementById('downloadBtn').style.display = 'block';
+            } else {
+                document.getElementById('sheetSelector').style.display = 'none';
+                document.getElementById('downloadBtn').style.display = 'none';
+                document.getElementById('tableContainer').innerHTML = '<p>No files found for selected year and semester</p>';
+            }
+        }
+
+        // Filter handlers
+        document.getElementById('yearSelector').addEventListener('change', function() {
+            const semester = document.getElementById('semesterSelector').value;
+            loadStoredFiles(this.value, semester);
+        });
+
+        document.getElementById('semesterSelector').addEventListener('change', function() {
+            const year = document.getElementById('yearSelector').value;
+            loadStoredFiles(year, this.value);
+        });
+
+        // File selection handler
+        document.getElementById('fileSelector').addEventListener('change', async function() {
+            const filename = this.value;
+            const year = document.getElementById('yearSelector').value || 'Unknown';
+            const semester = document.getElementById('semesterSelector').value || 'Unknown';
+            
+            if (!filename) {
+                document.getElementById('tableContainer').innerHTML = '';
+                document.getElementById('sheetSelector').style.display = 'none';
+                return;
+            }
+
+            const response = await fetch(`http://localhost:3000/file/${year}/${semester}/${filename}`);
+            const result = await response.json();
+            if (result.error) {
+                alert('Error loading file: ' + result.error);
+                return;
+            }
+
+            workbook = XLSX.read(new Uint8Array(result.data), { type: 'array', cellStyles: true });
+            const sheetSelector = document.getElementById('sheetSelector');
+            sheetSelector.innerHTML = "<option value=''>Select Sheet</option>";
+            workbook.SheetNames.forEach(sheet => {
+                const option = document.createElement('option');
+                option.value = sheet;
+                option.textContent = sheet;
+                sheetSelector.appendChild(option);
+            });
+            sheetSelector.style.display = 'block';
+
+            // Auto-select first sheet
+            if (workbook.SheetNames.length > 0) {
+                sheetSelector.value = workbook.SheetNames[0];
+                sheetSelector.dispatchEvent(new Event('change'));
+            }
+        });
+
+        // Sheet selection handler
+        document.getElementById('sheetSelector').addEventListener('change', function() {
+            const sheetName = this.value;
+            if (!sheetName || !workbook) return;
+
+            loadSheet(sheetName);
+        });
+
+        // Enhanced sheet loading with deeper Total column detection
+        function loadSheet(sheetName) {
+            const sheet = workbook.Sheets[sheetName];
+            const range = XLSX.utils.decode_range(sheet['!ref']);
+            const table = document.createElement('table');
+            
+            let maxRow = range.s.r;
+            let maxCol = range.s.c;
+            for (let R in sheet) {
+                if (R[0] === '!') continue;
+                const cell = XLSX.utils.decode_cell(R);
+                if (sheet[R].v !== undefined && sheet[R].v !== '') {
+                    maxRow = Math.max(maxRow, cell.r);
+                    maxCol = Math.max(maxCol, cell.c);
+                }
+            }
+
+            const totalColumnIndices = new Set();
+            for (let row = range.s.r; row <= Math.min(range.s.r + 10, maxRow); row++) {
+                for (let col = range.s.c; col <= maxCol; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                    const cell = sheet[cellAddress];
+                    if (cell && cell.v && String(cell.v).toLowerCase().includes('total')) {
+                        totalColumnIndices.add(col);
+                    }
+                }
+                if (totalColumnIndices.size > 0) break;
+            }
+
+            for (let row = range.s.r; row <= maxRow; row++) {
+                const tr = document.createElement('tr');
+                for (let col = range.s.c; col <= maxCol; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                    const cell = sheet[cellAddress];
+                    const td = document.createElement(row === range.s.r ? 'th' : 'td');
+                    
+                    if (cell) {
+                        switch (cell.t) {
+                            case 'n':
+                                td.textContent = cell.w || cell.v;
+                                td.style.textAlign = 'right';
+                                if (totalColumnIndices.has(col) && row !== range.s.r && !isNaN(cell.v) && cell.v < 20) {
+                                    td.classList.add('low-marks');
+                                }
+                                break;
+                            case 'd':
+                                td.textContent = new Date(cell.v).toLocaleDateString();
+                                break;
+                            default:
+                                td.textContent = cell.v;
+                        }
+                    } else {
+                        td.textContent = '';
+                    }
+                    
+                    if (totalColumnIndices.has(col)) {
+                        td.classList.add('highlight-column');
+                    }
+                    tr.appendChild(td);
+                }
+                table.appendChild(tr);
+            }
+
+            const tableContainer = document.getElementById('tableContainer');
+            tableContainer.innerHTML = '';
+            tableContainer.appendChild(table);
+        }
+
+        // Full screen in new window
+        document.getElementById('fullscreenBtn').addEventListener('click', function() {
+            const tableContainer = document.getElementById('tableContainer');
+            if (!tableContainer.innerHTML) {
+                alert("Please select a sheet to view in full screen!");
+                return;
+            }
+
+            const newWindow = window.open('', '_blank', 'width=' + screen.width + ',height=' + screen.height);
+            newWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Full Screen Dashboard</title>
+                    <style>
+                        body, html {
+                            margin: 0;
+                            padding: 0;
+                            height: 100%;
+                            font-family: 'Montserrat', sans-serif;
+                            background: linear-gradient(135deg, #2E2E2E, #1A1A1A);
+                            color: #fff;
+                            overflow: hidden;
+                        }
+                        .fullscreen-container {
+                            width: 100vw;
+                            height: 100vh;
+                            padding: 20px;
+                            box-sizing: border-box;
+                            overflow: auto;
+                            background: rgba(255, 255, 255, 0.05);
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: separate;
+                            border-spacing: 0;
+                            font-size: 15px;
+                            background: rgba(255, 255, 255, 0.02);
+                            border-radius: 8px;
+                        }
+                        th {
+                            background: linear-gradient(135deg, #FFD700, #FFA500);
+                            color: #1A1A1A;
+                            padding: 12px 16px;
+                            font-weight: 700;
+                            text-align: center;
+                            position: sticky;
+                            top: 0;
+                            z-index: 1;
+                            border-bottom: 2px solid #FFA500;
+                        }
+                        td {
+                            padding: 12px 16px;
+                            text-align: center;
+                            color: #fff;
+                            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+                        }
+                        tr:last-child td {
+                            border-bottom: none;
+                        }
+                        tr:hover td {
+                            background: rgba(255, 215, 0, 0.15);
+                            transition: background 0.3s ease;
+                        }
+                        .highlight-column {
+                            background: rgba(255, 165, 0, 0.3) !important;
+                        }
+                        .low-marks {
+                            background: rgba(255, 0, 0, 0.5) !important;
+                            color: #fff;
+                            font-weight: bold;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="fullscreen-container">
+                        ${tableContainer.innerHTML}
+                    </div>
+                </body>
+                </html>
+            `);
+            newWindow.document.close();
+            newWindow.focus();
+            newWindow.moveTo(0, 0);
+            newWindow.resizeTo(screen.width, screen.height);
+        });
+
+        // Download PDF
+        document.getElementById('downloadBtn').addEventListener('click', function() {
+            const element = document.getElementById('tableContainer');
+            const year = document.getElementById('yearSelector').value;
+            const semester = document.getElementById('semesterSelector').value;
+            const sheet = document.getElementById('sheetSelector').value;
+            
+            html2pdf()
+                .set({
+                    margin: 1,
+                    filename: `Marks_${year}_Sem${semester}_${sheet || 'sheet'}.pdf`,
+                    html2canvas: { scale: 2 },
+                    jsPDF: { orientation: 'landscape' }
+                })
+                .from(element)
+                .save();
+        });
+
+        // Initial load
+        loadStoredFiles();
+    </script>
+</body>
+</html>
+
+
+
